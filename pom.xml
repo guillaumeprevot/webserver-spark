@@ -1,0 +1,89 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>fr.techgp.webserver</groupId>
+	<artifactId>webserver-spark</artifactId>
+	<packaging>jar</packaging>
+	<version>0.1</version>
+	<name>webserver-spark</name>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<maven.compiler.source>12</maven.compiler.source>
+		<maven.compiler.target>12</maven.compiler.target>
+	</properties>
+
+	<dependencies>
+		<!--
+			http://sparkjava.com/download
+			https://mvnrepository.com/artifact/com.sparkjava/spark-core
+		-->
+		<dependency>
+			<groupId>com.sparkjava</groupId>
+			<artifactId>spark-core</artifactId>
+			<version>[2.9.1,)</version>
+		</dependency>
+		<!--
+			1.8 en béta
+			http://www.slf4j.org/api/org/slf4j/impl/SimpleLogger.html
+			https://www.mvnrepository.com/artifact/org.slf4j/slf4j-api
+		-->
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+			<version>[1.7.28,1.8.0-alpha0)</version>
+		</dependency>
+		<!--
+			1.8 en béta
+			http://www.slf4j.org/api/org/slf4j/impl/SimpleLogger.html
+			https://www.mvnrepository.com/artifact/org.slf4j/slf4j-simple
+		-->
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-simple</artifactId>
+			<version>[1.7.28,1.8.0-alpha0)</version>
+		</dependency>
+		<!--
+			https://commons.apache.org/proper/commons-lang/
+			https://mvnrepository.com/artifact/org.apache.commons/commons-lang3
+		-->
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+			<version>3.9</version>
+		</dependency>
+		<!--
+			https://commons.apache.org/proper/commons-codec/dependency-info.html
+			https://mvnrepository.com/artifact/commons-codec/commons-codec
+		-->
+		<dependency>
+			<groupId>commons-codec</groupId>
+			<artifactId>commons-codec</artifactId>
+			<version>1.13</version>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<sourceDirectory>src/</sourceDirectory>
+		<outputDirectory>bin/</outputDirectory>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>get-jars</id>
+						<phase>compile</phase>
+						<goals>
+							<goal>copy-dependencies</goal>
+						</goals>
+						<configuration>
+							<includeScope>runtime</includeScope>
+							<outputDirectory>lib</outputDirectory>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>

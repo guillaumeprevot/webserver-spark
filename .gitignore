@@ -1,0 +1,10 @@
+/bin/*
+/lib/*.jar
+/public/
+/target/
+/pom.bat
+/webserver.log
+/webserver.pid
+/webserver-dev.conf
+/webserver-dev.pkcs12
+/webserver-dev.url
