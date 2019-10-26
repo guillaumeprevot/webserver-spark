@@ -94,7 +94,7 @@ public class SparkWebServer {
 			}
 
 			// Trace for requested URLs that do not exist in shared folders
-			Spark.notFound((request, response) -> reply(response, request.pathInfo(), HttpServletResponse.SC_NOT_FOUND));
+			Spark.get("/*", (request, response) -> reply(response, request.pathInfo(), HttpServletResponse.SC_NOT_FOUND));
 
 			// Prepare "pid" file
 			// String pid = new File("/proc/self").getCanonicalFile().getName(); // (linux only, all jvm)
