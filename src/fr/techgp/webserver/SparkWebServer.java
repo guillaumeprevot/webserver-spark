@@ -29,6 +29,7 @@ import spark.Spark;
 
 public class SparkWebServer {
 
+	private static final String pidPath = System.getProperty("webserver.pid", "webserver.pid");
 	private static final String logPath = System.getProperty("webserver.log", "webserver.log");
 	private static final String confPath = System.getProperty("webserver.conf", "webserver.conf");
 	private static final Logger logger = prepareLogger();
@@ -97,7 +98,7 @@ public class SparkWebServer {
 			// Log started
 			// (linux only, all jvm) String pid = new File("/proc/self").getCanonicalFile().getName();
 			String pid = ManagementFactory.getRuntimeMXBean().getName().split("@")[0];
-			try (FileOutputStream os = new FileOutputStream(new File("webserver.pid"))) {
+			try (FileOutputStream os = new FileOutputStream(new File(pidPath))) {
 				os.write(pid.getBytes());
 			}
 			info("Application started on " + (keystore != null ? "HTTPS" : "HTTP") + " port " + port + " with PID " + pid);

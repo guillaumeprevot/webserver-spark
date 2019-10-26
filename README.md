@@ -4,14 +4,21 @@ Web server based on Spark (Java) to serve mostly static files.
 
 ## Presentation
 
-This project is a one-class Web Server written in Java using [Spark](http://sparkjava.com/).
+This project is a [one-class](./src/fr/techgp/webserver/SparkWebServer.java) Web Server written in Java using [Spark](http://sparkjava.com/).
 
 The default behaviour is :
 
-- run on port `10001` in HTTP and share the `public` folder as root (and only) folder (try [this URL](http://localhost:10001/index.html) with default configuration)
-- read configuration from `webserver.conf` (use `-Dwebserver.conf=another-file.conf` to change it's location)
-- write traces in `webserver.log` (use `-Dwebserver.log=none` to disable logging or `-Dwebserver.log=another-file.log` to change it's location)
-- write process id in `webserver.pid` when application is started to make termination with a script more convenient
+- run on port `10001` in HTTP and share the `public` folder as root (and only) folder
+    - check access to http://localhost:10001/index.html with default configuration
+- read configuration from `webserver.conf`
+    - use `-Dwebserver.conf=another-file.conf` to change it's location
+    - use `-Dwebserver.conf=default.conf:customized.conf` to use both files
+- write traces in `webserver.log`
+    - use `-Dwebserver.log=another-file.log` to change it's location
+    - use `-Dwebserver.log=none` to disable logging
+- write process id in `webserver.pid` when application is started
+    - use `-Dwebserver.pid=another-file.pid` to change it's location
+    - this should make termination easier, like ``kill -9 `cat webserver.pid` ``
 
 The configuration should be easily customized. For instance, to share 2 folders with HTTPS enabled, you could use this configuration :
 
