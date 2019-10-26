@@ -49,7 +49,8 @@ public class SparkWebServer {
 	public static final void main(String[] args) {
 		try {
 			// Log start
-			info("Starting application...");
+			if (logger.isInfoEnabled())
+				logger.info("Starting application...");
 
 			// Load configuration
 			Properties properties = new Properties();
@@ -95,15 +96,20 @@ public class SparkWebServer {
 			// Trace for requested URLs that do not exist in shared folders
 			Spark.notFound((request, response) -> reply(response, request.pathInfo(), HttpServletResponse.SC_NOT_FOUND));
 
-			// Log started
-			// (linux only, all jvm) String pid = new File("/proc/self").getCanonicalFile().getName();
+			// Prepare "pid" file
+			// String pid = new File("/proc/self").getCanonicalFile().getName(); // (linux only, all jvm)
 			String pid = ManagementFactory.getRuntimeMXBean().getName().split("@")[0];
 			try (FileOutputStream os = new FileOutputStream(new File(pidPath))) {
 				os.write(pid.getBytes());
 			}
-			info("Application started on " + (keystore != null ? "HTTPS" : "HTTP") + " port " + port + " with PID " + pid);
+
+			// Log started
+			if (logger.isInfoEnabled())
+				logger.info("Application started on " + (keystore != null ? "HTTPS" : "HTTP") + " port " + port + " with PID " + pid);
 		} catch (Exception ex) {
-			error("Application stopped because of unexpected errors.", ex);
+			// Log fatal error
+			if (logger.isErrorEnabled())
+				logger.error("Application stopped because of unexpected error.", ex);
 		}
 	}
 
@@ -171,30 +177,12 @@ public class SparkWebServer {
 
 			} catch (Exception ex) {
 				Spark.halt(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal Server Error"); // 500
-				error(HttpServletResponse.SC_INTERNAL_SERVER_ERROR + " : " + path, ex);
+				if (logger.isErrorEnabled())
+					logger.error(HttpServletResponse.SC_INTERNAL_SERVER_ERROR + " : " + path, ex);
 				return null;
 			}
 		}
 
-	}
-
-	/**
-	 * Pour tracer un message informatif "text" (via "logger.info" et "System.out.println")
-	 */
-	public static final void info(String text) {
-		if (logger.isInfoEnabled())
-			logger.info(text);
-		System.out.println(text);
-	}
-
-	/**
-	 * Pour tracer une erreur "text" liée à une exception "ex" (via "logger.error", "System.err.println" et "ex.printStackTrace")
-	 */
-	public static final void error(String text, Exception ex) {
-		if (logger.isErrorEnabled())
-			logger.error(text, ex);
-		System.err.println(text);
-		ex.printStackTrace();
 	}
 
 	/**
@@ -206,7 +194,6 @@ public class SparkWebServer {
 			logger.trace(statusCode + " : " + path);
 		else if (statusCode >= 400 && logger.isWarnEnabled())
 			logger.warn(statusCode + " : " + path);
-		System.out.println(statusCode + " : " + path);
 		return "";
 	}
 
