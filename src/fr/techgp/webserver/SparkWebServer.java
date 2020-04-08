@@ -165,8 +165,10 @@ public class SparkWebServer {
 						response.type(mimetype);
 						// Et renvoyer la ressource demandée
 						try (InputStream is = new FileInputStream(file)) {
-							copy(is, response.raw().getOutputStream(), new byte[1024 * 1024]);
-							return reply(response, path, HttpServletResponse.SC_OK);
+							try (OutputStream os = response.raw().getOutputStream()) {
+								copy(is, os, new byte[1024 * 1024]);
+								return reply(response, path, HttpServletResponse.SC_OK);
+							}
 						}
 					}
 				}

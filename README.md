@@ -42,3 +42,9 @@ java -cp ./bin:./lib/* -Djdk.tls.ephemeralDHKeySize=2048 -Djdk.tls.rejectClientI
 ```
 
 If you want to share any thoughts about it, feel free to do so !
+
+## Changelog
+
+2019-10-25 : initial release
+2019-10-26 : improve trace and allow pid file customization
+2020-04-08 : use Java 11 LTS and update dependencies (common-codec 1.14, common-lang3 3.10, slf4j 1.7.30)
