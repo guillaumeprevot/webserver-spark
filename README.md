@@ -50,3 +50,4 @@ If you want to share any thoughts about it, feel free to do so !
 2020-04-08 : use Java 11 LTS and update dependencies (common-codec 1.14, common-lang3 3.10, slf4j 1.7.30)
 2020-05-06 : add a few optional routes with default behaviour (/utils/ping, /utils/ip, /utils/mimetype/:extension)
 2020-05-06 : add another optional route for my own use (/utils/moneyrates)
+2020-05-06 : add another optional route for my own use (/utils/iblocklist)

@@ -8,12 +8,17 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.lang.management.ManagementFactory;
+import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.function.BiFunction;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 import javax.servlet.http.HttpServletResponse;
 import javax.xml.parsers.DocumentBuilder;
@@ -111,6 +116,8 @@ public class SparkWebServer {
 				Spark.get("/utils/mimetype/:extension", (req, resp) -> mimetype(req, resp, settings));
 			if ("true".equals(settings.apply("utils.moneyrates.enabled", null)))
 				Spark.get("/utils/moneyrates", new MoneyRates(settings));
+			if ("true".equals(settings.apply("utils.iblocklist.enabled", null)))
+				Spark.get("/utils/iblocklist", new IBlockList(settings));
 
 
 			// Trace for requested URLs that do not exist in shared folders
@@ -160,15 +167,15 @@ public class SparkWebServer {
 
 	private static final class MoneyRates implements Route {
 
-		private JsonObject result = null;
-		private long refreshTime = 0;
-		private final long refreshInterval;
 		private final String url;
+		private final long refreshInterval;
+		private long refreshTime = 0;
+		private JsonObject result = null;
 
 		public MoneyRates(BiFunction<String, String, String> settings) {
 			super();
-			this.refreshInterval = Integer.parseInt(settings.apply("utils.moneyrates.interval", "1")) * 24 * 60 * 60 * 1000;
 			this.url = settings.apply("utils.moneyrates.url", "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml");
+			this.refreshInterval = Integer.parseInt(settings.apply("utils.moneyrates.interval", "1")) * 24 * 60 * 60 * 1000;
 		}
 
 		@Override
@@ -198,24 +205,95 @@ public class SparkWebServer {
 				}
 
 				// Renvoyer le résultat au format JSON
+				String json = new Gson().toJson(this.result);
 				response.header("X-DISCLAIMER", "Test API. Use at your own risk");
 				response.header("Access-Control-Allow-Origin", "*");
+				response.header("Content-Disposition", "inline; filename=\"moneyrates.json\"");
+				response.header("Content-Length", Integer.toString(json.length()));
 				response.type("application/json");
-				return new Gson().toJson(this.result);
+				return json;
 
 			} catch (Exception ex) {
 				// Annuler
 				this.result = null;
 				this.refreshTime = 0;
 				// Tracer
-				if (logger.isWarnEnabled())
-					logger.warn("[moneyrates] Unexpected error while refreshing.", ex);
+				if (logger.isErrorEnabled())
+					logger.error("[moneyrates] Unexpected error while refreshing.", ex);
 				// Retour
 				Spark.halt(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal Server Error"); // 500
 				return null;
 			}
 		}
+	}
 
+	private static final class IBlockList implements Route {
+
+		private final List<String> urls;
+		private final File file;
+		private final long refreshInterval;
+		private long refreshTime = 0;
+
+		public IBlockList(BiFunction<String, String, String> settings) {
+			super();
+			this.urls = new ArrayList<>();
+			this.file = new File(settings.apply("utils.iblocklist.file", "iblocklist.txt.gz"));
+			this.refreshInterval = Integer.parseInt(settings.apply("utils.iblocklist.interval", "1")) * 24 * 60 * 60 * 1000;
+			int index = 0;
+			while (settings.apply("utils.iblocklist." + index, null) != null) {
+				this.urls.add(settings.apply("utils.iblocklist." + index, null));
+				index++;
+			}
+		}
+
+		@Override
+		public Object handle(Request request, Response response) throws Exception {
+			try {
+				// Demander un fichier temporaire
+				byte[] buffer = new byte[1024 * 1024];
+
+				// Attendre une journée entre chaque raffraichissement
+				if ((System.currentTimeMillis() - this.refreshTime) > this.refreshInterval) {
+					if (logger.isInfoEnabled())
+						logger.info("[iblocklist] Refreshing " + this.file.getAbsolutePath() + "...");
+					this.file.delete();
+					try (OutputStream os = new GZIPOutputStream(new FileOutputStream(this.file, false))) {
+						for (String url : this.urls) {
+							if (logger.isInfoEnabled())
+								logger.info("[iblocklist] Adding " + url + "...");
+							try (InputStream is = new GZIPInputStream(new URL(url).openStream())) {
+								copy(is, os, buffer);
+							}
+						}
+						this.refreshTime = System.currentTimeMillis();
+					}
+					if (logger.isInfoEnabled())
+						logger.info("[iblocklist] Refresh completed.");
+				}
+
+				// Renvoyer le résultat du fichier concaténé
+				response.header("Content-Disposition", "inline; filename=\"" + this.file.getName() + "\"");
+				response.header("Content-Length", Long.toString(this.file.length()));
+				response.type("application/x-gzip");
+				try (InputStream is = new FileInputStream(this.file)) {
+					try (OutputStream os = response.raw().getOutputStream()) {
+						copy(is, os, buffer);
+					}
+					return null;
+				}
+
+			} catch (IOException ex) {
+				// Annuler
+				this.file.delete();
+				this.refreshTime = 0;
+				// Tracer
+				if (logger.isErrorEnabled())
+					logger.error("[iblocklist] Unexpected error while refreshing.", ex);
+				// Retour
+				Spark.halt(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal Server Error"); // 500
+				return null;
+			}
+		}
 	}
 
 	private static final class StaticRessourceWithCache implements Route {
