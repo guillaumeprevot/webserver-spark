@@ -16,11 +16,19 @@ import java.util.Properties;
 import java.util.function.BiFunction;
 
 import javax.servlet.http.HttpServletResponse;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.time.FastDateFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 
 import spark.Request;
 import spark.Response;
@@ -101,6 +109,9 @@ public class SparkWebServer {
 				Spark.get("/utils/ip", (req, resp) -> ip(req));
 			if ("true".equals(settings.apply("utils.mimetype.enabled", null)))
 				Spark.get("/utils/mimetype/:extension", (req, resp) -> mimetype(req, resp, settings));
+			if ("true".equals(settings.apply("utils.moneyrates.enabled", null)))
+				Spark.get("/utils/moneyrates", new MoneyRates(settings));
+
 
 			// Trace for requested URLs that do not exist in shared folders
 			Spark.get("/*", (request, response) -> reply(response, request.pathInfo(), HttpServletResponse.SC_NOT_FOUND));
@@ -145,6 +156,66 @@ public class SparkWebServer {
 		}
 		response.status(HttpServletResponse.SC_OK);
 		return mimetype;
+	}
+
+	private static final class MoneyRates implements Route {
+
+		private JsonObject result = null;
+		private long refreshTime = 0;
+		private final long refreshInterval;
+		private final String url;
+
+		public MoneyRates(BiFunction<String, String, String> settings) {
+			super();
+			this.refreshInterval = Integer.parseInt(settings.apply("utils.moneyrates.interval", "1")) * 24 * 60 * 60 * 1000;
+			this.url = settings.apply("utils.moneyrates.url", "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml");
+		}
+
+		@Override
+		public Object handle(Request request, Response response) throws Exception {
+			try {
+				// Attendre une journée entre chaque raffraichissement
+				if (this.result == null || (System.currentTimeMillis() - this.refreshTime) > this.refreshInterval) {
+					if (logger.isInfoEnabled())
+						logger.info("[moneyrates] Refreshing...");
+					// http://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml
+					// http://www.ecb.europa.eu/stats/exchange/eurofxref/html/index.en.html
+					DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+					DocumentBuilder builder = factory.newDocumentBuilder();
+					Document doc = builder.parse(this.url);
+					NodeList nodes = doc.getElementsByTagName("Cube");
+					this.result = new JsonObject();
+					this.refreshTime = System.currentTimeMillis();
+					for (int i = 0; i < nodes.getLength(); i++) {
+						Node node = nodes.item(i);
+						Node currency = node.getAttributes().getNamedItem("currency");
+						Node rate = node.getAttributes().getNamedItem("rate");
+						if (currency != null)
+							this.result.addProperty(currency.getNodeValue(), Double.valueOf(rate.getNodeValue()));
+					}
+					if (logger.isInfoEnabled())
+						logger.info("[moneyrates] Refresh completed.");
+				}
+
+				// Renvoyer le résultat au format JSON
+				response.header("X-DISCLAIMER", "Test API. Use at your own risk");
+				response.header("Access-Control-Allow-Origin", "*");
+				response.type("application/json");
+				return new Gson().toJson(this.result);
+
+			} catch (Exception ex) {
+				// Annuler
+				this.result = null;
+				this.refreshTime = 0;
+				// Tracer
+				if (logger.isWarnEnabled())
+					logger.warn("[moneyrates] Unexpected error while refreshing.", ex);
+				// Retour
+				Spark.halt(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal Server Error"); // 500
+				return null;
+			}
+		}
+
 	}
 
 	private static final class StaticRessourceWithCache implements Route {
