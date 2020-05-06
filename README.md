@@ -1,10 +1,10 @@
 # webserver-spark
 
-Web server based on Spark (Java) to serve mostly static files.
+Web server based on Spark (Java) to easily serve static files and folders.
 
 ## Presentation
 
-This project is a [one-class](./src/fr/techgp/webserver/SparkWebServer.java) Web Server written in Java using [Spark](http://sparkjava.com/).
+This project is a [one-file](./src/fr/techgp/webserver/SparkWebServer.java) Web Server written in Java using [Spark](http://sparkjava.com/).
 
 The default behaviour is :
 
@@ -48,3 +48,4 @@ If you want to share any thoughts about it, feel free to do so !
 2019-10-25 : initial release
 2019-10-26 : improve trace and allow pid file customization
 2020-04-08 : use Java 11 LTS and update dependencies (common-codec 1.14, common-lang3 3.10, slf4j 1.7.30)
+2020-05-06 : adding a few optional routes with default behaviour (ping, ip, mimetype)

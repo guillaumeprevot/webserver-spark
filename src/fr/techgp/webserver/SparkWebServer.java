@@ -26,6 +26,7 @@ import spark.Request;
 import spark.Response;
 import spark.Route;
 import spark.Spark;
+import spark.utils.StringUtils;
 
 public class SparkWebServer {
 
@@ -93,6 +94,14 @@ public class SparkWebServer {
 				prefix = settings.apply("static." + i + ".prefix", "");
 			}
 
+			// Some predefined features
+			if ("true".equals(settings.apply("utils.ping.enabled", null)))
+				Spark.get("/utils/ping", (req, resp) -> "pong");
+			if ("true".equals(settings.apply("utils.ip.enabled", null)))
+				Spark.get("/utils/ip", (req, resp) -> ip(req));
+			if ("true".equals(settings.apply("utils.mimetype.enabled", null)))
+				Spark.get("/utils/mimetype/:extension", (req, resp) -> mimetype(req, resp, settings));
+
 			// Trace for requested URLs that do not exist in shared folders
 			Spark.get("/*", (request, response) -> reply(response, request.pathInfo(), HttpServletResponse.SC_NOT_FOUND));
 
@@ -111,6 +120,31 @@ public class SparkWebServer {
 			if (logger.isErrorEnabled())
 				logger.error("Application stopped because of unexpected error.", ex);
 		}
+	}
+
+	private static final String ip(Request request) throws Exception {
+		String ip = request.headers("X-Real-IP");
+		if (StringUtils.isNotEmpty(ip))
+			return ip;
+		ip = request.headers("X-Forwarded-For");
+		if (StringUtils.isNotEmpty(ip))
+			return ip.split(",")[0].trim();
+		return request.ip();
+	}
+
+	private static final String mimetype(Request request, Response response, BiFunction<String, String, String> settings) {
+		// File extension param
+		String param = request.params(":extension");
+		// Checked file extension
+		String extension = param.substring(param.indexOf(".") + 1);
+		// Associated MIME type
+		String mimetype = settings.apply("mimetypes." + extension, null);
+		if (mimetype == null) {
+			response.status(HttpServletResponse.SC_NOT_FOUND);
+			return "";
+		}
+		response.status(HttpServletResponse.SC_OK);
+		return mimetype;
 	}
 
 	private static final class StaticRessourceWithCache implements Route {
