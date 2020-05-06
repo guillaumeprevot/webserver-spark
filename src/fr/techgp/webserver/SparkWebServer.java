@@ -156,7 +156,7 @@ public class SparkWebServer {
 		// Checked file extension
 		String extension = param.substring(param.indexOf(".") + 1);
 		// Associated MIME type
-		String mimetype = settings.apply("mimetypes." + extension, null);
+		String mimetype = settings.apply("mimetype." + extension, null);
 		if (mimetype == null) {
 			response.status(HttpServletResponse.SC_NOT_FOUND);
 			return "";
