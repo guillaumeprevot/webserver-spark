@@ -51,3 +51,6 @@ If you want to share any thoughts about it, feel free to do so !
 2020-05-06 : add a few optional routes with default behaviour (/utils/ping, /utils/ip, /utils/mimetype/:extension)
 2020-05-06 : add another optional route for my own use (/utils/moneyrates)
 2020-05-06 : add another optional route for my own use (/utils/iblocklist)
+2020-05-08 : fix duplicated 'Date' response header (StaticRessourceWithCache)
+2020-05-08 : add 'favicon' files in public/ folder
+2020-05-08 : ignore 'iblocklist' temp file (.gitignore)

@@ -15,17 +15,21 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.function.BiFunction;
+import java.util.function.Supplier;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.time.FastDateFormat;
+import org.eclipse.jetty.io.EofException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
@@ -326,46 +330,64 @@ public class SparkWebServer {
 				if (!file.exists())
 					return reply(response, path, HttpServletResponse.SC_NOT_FOUND);
 
-				// Commencer la réponse en précisant quelques en-têtes liées à la date de modificaiton
-				Date fileDate = new Date(file.lastModified());
-				String lastModified = CACHE_DATE_FORMAT.format(fileDate);
-				String etag = sha1(lastModified);
-				response.header("Cache-Control", "no-cache");
-				response.header("Etag", etag);
-				response.header("Last-Modified", lastModified);
+				// Récupérer le type MIME uniquement si nécessaire
+				Supplier<String> mimetype = () -> {
+					String extension = path.substring(path.lastIndexOf(".") + 1);
+					return this.settings.apply("mimetype." + extension, "application/octet-stream");
+				};
 
-				// Vérifier le 1er type de cache : If-None-Match :""9e3fa9259d22837a4e72fe8b69112968b88e3cca""
-				String ifNoneMatch = request.headers("If-None-Match");
-				if (ifNoneMatch == null || !ifNoneMatch.equals(etag)) {
-					// Vérifier le 2ème type de cache : If-Modified-Since :"Mon, 16 Mar 2015 07:42:10 GMT"
-					String ifModifiedSince = request.headers("If-Modified-Since");
-					if (ifModifiedSince == null || !ifModifiedSince.equals(lastModified)) {
-						// Tant pis, pas de cache
-						response.header("Date", lastModified);
-						// Indiquer le bon type MIME, si on le connait
-						String extension = path.substring(path.lastIndexOf(".") + 1);
-						String mimetype = this.settings.apply("mimetype." + extension, "application/octet-stream");
-						response.type(mimetype);
-						// Et renvoyer la ressource demandée
-						try (InputStream is = new FileInputStream(file)) {
-							try (OutputStream os = response.raw().getOutputStream()) {
-								copy(is, os, new byte[1024 * 1024]);
-								return reply(response, path, HttpServletResponse.SC_OK);
-							}
-						}
-					}
-				}
+				// Renvoyer ou non le fichier selon le cache
+				sendCacheable(request.raw(), response.raw(), file, mimetype);
+				if (logger.isTraceEnabled())
+					logger.trace(response.status() + " : " + path);
 
-				// OK, la donnée en cache semble à jour, on renvoie le statut 304 (Not Modified)
-				response.header("Content-Length", "0");
-				return reply(response, path, HttpServletResponse.SC_NOT_MODIFIED);
+				// Dans les cas, la réponse est déjà terminée
+				return "";
 
 			} catch (Exception ex) {
-				Spark.halt(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal Server Error"); // 500
 				if (logger.isErrorEnabled())
 					logger.error(HttpServletResponse.SC_INTERNAL_SERVER_ERROR + " : " + path, ex);
+				Spark.halt(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal Server Error"); // 500
 				return null;
 			}
+		}
+
+		private static final boolean sendCacheable(HttpServletRequest request, HttpServletResponse response, File file, Supplier<String> mimetype) throws IOException {
+			// La date de modification du fichier sert de date pour le cache
+			Date fileDate = new Date(file.lastModified());
+			String lastModified = CACHE_DATE_FORMAT.format(fileDate);
+			String etag = sha1(lastModified);
+
+			// En-têtes correspondantes aux infos calculées du cache
+			response.setHeader("Cache-Control", "no-cache");
+			response.setHeader("Etag", etag);
+			response.setHeader("Last-Modified", lastModified);
+
+			//1er type de cache : If-None-Match :""9e3fa9259d22837a4e72fe8b69112968b88e3cca""
+			String ifNoneMatch = request.getHeader("If-None-Match");
+			if (ifNoneMatch == null || !ifNoneMatch.equals(etag)) {
+				//2ème type de cache : If-Modified-Since :"Mon, 16 Mar 2015 07:42:10 GMT"
+				String ifModifiedSince = request.getHeader("If-Modified-Since");
+				if (ifModifiedSince == null || !ifModifiedSince.equals(lastModified)) {
+					// Tant pis, pas de cache
+					response.setHeader("Date", lastModified);
+					response.setContentType(Optional.ofNullable(mimetype).map(Supplier::get).orElse("application/octet-stream"));
+					response.setStatus(HttpServletResponse.SC_OK);
+					// Envoyer le fichier demandé
+					try (InputStream is = new FileInputStream(file);
+							OutputStream os = response.getOutputStream()) {
+						copy(is, os, new byte[1024 * 1024]);
+					} catch (EofException ex) {
+						// Requête interrompue par le client
+					}
+					return false;
+				}
+			}
+
+			// OK, la donnée en cache semble à jour, on renvoie le statut 304 (Not Modified)
+			response.setContentLength(0);
+			response.setStatus(HttpServletResponse.SC_NOT_MODIFIED);
+			return true;
 		}
 
 	}
@@ -408,5 +430,6 @@ public class SparkWebServer {
 		}
 		return count;
 	}
+
 
 }
